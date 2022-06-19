@@ -1,30 +1,29 @@
 // page 83 for interacting with bitcoin-cli over the internet
 // use modulo::mod;
 
-use primitive_types::U512;
-// use rand::Rng;
-use rand::{thread_rng, Rng};
+use std::str::FromStr;
+
+use num_bigint::{BigInt, BigUint, RandBigInt};
+// use num_traits::{Zero, One};
+// use rand::prelude::Distribution;
+// use rand::{thread_rng, Rng};
+// use rand::distributions::Uniform;
 
 /// Returns the positive module
 fn positive_mod_i32(v: i32, p: i32) -> i32 {
     ((v % p) + p) % p
 }
 
-fn make_private_key(n: &U512) -> U512 {
+fn make_private_key(n: &BigUint) -> BigUint {
     // Or sha256 ... something
-    let mut rng = thread_rng();
-    let mut key = U512::MAX;
-    while key > *n {
-        key = U512::from(0);
-        for idx in 0..4 {
-            let mut byte = 0;
-            for _ in 0..64 {
-                byte = (byte << 1) | rng.gen_range(0..=1);
-            }
-            key.0[idx] = byte;
-        }
+    let mut ran = rand::thread_rng();
+
+    let mut private_key = ran.gen_biguint(256);
+    
+    while private_key > *n {
+        private_key = ran.gen_biguint(256);
     }
-    key
+    private_key
 }
 
 /// Calculates the powers of two that sum to the input number.
@@ -141,51 +140,28 @@ fn curve_multiplication(p: u8, a: u8, b: u8, gx: u8, gy: u8, n: u8, multiplyier:
 pub fn ch4() {
     // https://youtu.be/F3zzNa42-tQ
 
-    let two = U512::from(2);
-    // max private key:
-    let n = U512::from("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141");
+    let two = BigUint::from(2u32);
+    let max = BigUint::from_bytes_be(&vec![0xFFu8;32][..]);
+    println!("Max 256 bit number:  {:?}", max);
+    let n = BigUint::parse_bytes(b"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141", 16).unwrap();
+    println!("Max n (private key): {:?}", n);
+    
     // the order the the modulo of the field of the eliptic curve
-    let p = two.pow(U512::from(256)) 
-        - two.pow(U512::from(32)) 
-        - two.pow(U512::from(9)) 
-        - two.pow(U512::from(8)) 
-        - two.pow(U512::from(7))
-        - two.pow(U512::from(6))
-        - two.pow(U512::from(4))
-        - 1;
+    let p = two.pow(256) 
+        - two.pow(32) 
+        - two.pow(9) 
+        - two.pow(8) 
+        - two.pow(7)
+        - two.pow(6)
+        - two.pow(4)
+        - BigUint::from(1u8);
+    println!("p: curve order:      {:?}", p);
 
     let a = 1i32;
     let b = 7i32;
 
-    println!("n: max allowed key {}", n);
-    println!("p: field modulo    {}", p);
-
     let private_key = make_private_key(&n);
-    println!("private key:       {}", private_key);
-
-    let p = 17f64;
-
-    for i in 0..=17 {
-        println!("{} {}", i, (((i as f64).powf(3.) + 7.) % p).powf(0.5));
-    }
-    println!();
-
-    let p = 17i32;
-    let gx = 8i32;
-    let gy = 3i32;
-
-    let mut gxi = gx;
-    let mut gyi = gy;
-
-    for i in 0..25 {
-        let s_num = (3 * gx.pow(2) + a) % p;
-        let s_denom = (1. / ((1. / (2. * gyi as f64)) % (p as f64))).round() as i32;
-        let s = (s_num * s_denom) % p;
-        let gxj = (s.pow(2) - 2 * gxi) % p;
-        gyi = (s * (gxi - gxj) - gyi) % p;
-        gxi = gxj;
-        println!("{} {} {}", i, gxi, gyi);
-    }
+    println!("private key:         {}", private_key);
 }
 
 #[cfg(test)]
