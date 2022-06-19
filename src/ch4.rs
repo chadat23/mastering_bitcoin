@@ -48,31 +48,7 @@ fn powers_of_two(mut n: u8) -> Vec<u8> {
     output
 }
 
-// rust-midinverse
-/// Performs the euclidean algerythom an a curve and point
-fn extended_euclidean_algeorithm(a: i32, p: i32, xa: i32, ya: i32, xp: i32, yp: i32, target: i32) -> (i32, i32) {
-    // https://youtu.be/IwRtISxAHY4
-    
-    let a = positive_mod_i32(a, p);
-    let d = p / a;
-    let r = p % a;
-    let xr = xp - d * xa;
-    let yr = yp - d * ya;
-    if r == target {
-        (xr as i32, yr as i32)
-    } else {
-        extended_euclidean_algeorithm(r, a, xr, yr, xa, ya, target)
-    }
-}
 
-// Calculates the modulo inverse of a number with a given p
-fn modulo_inverse(a: i32, p: i32) -> i32 {
-    if a == 1 {
-        return 1
-    }
-    let (_, y) = extended_euclidean_algeorithm(a, p, 0, 1, 1, 0, 1);
-    positive_mod_i32(y, p)
-}
 
 fn modulo_slope_dy(dy: i32, p: i32) -> i32 {
     let (_, y) = extended_euclidean_algeorithm(dy, p, 0, 1, 1, 0, 0);
@@ -114,6 +90,18 @@ fn curve_addition(x0: u8, y0: u8, x1: u8, y1: u8, p: u8) -> (u8, u8) {
     let x1 = x1 as i32;
     let y1 = y1 as i32;
     let p = p as i32;
+    // let a = a as i32;
+
+    // let s = if x0 == x1 {
+    //     if y0 != y1 {
+    //         panic!("Vertically stacked points break things!")
+    //     }
+    //     let s_num = (3 * x0.pow(2) + a) % p;
+    //     let s_denom = modulo_inverse(2 * y0, p) as i32;
+    //     positive_mod_i32(s_num * s_denom, p)
+    // } else {
+    //     positive_mod_i32((y1 - y0) * modulo_inverse(x1 - x0, p), p)
+    // };
 
     let s = positive_mod_i32((y1 - y0) * modulo_inverse(x1 - x0, p), p);
 
