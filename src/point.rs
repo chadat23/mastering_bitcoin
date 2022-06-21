@@ -16,7 +16,7 @@ pub(crate) struct Point {
 }
 
 impl Point {
-    fn generator_point() -> Self {
+    pub fn generator_point() -> Self {
         Point::from_xy(
             BigInt::parse_bytes(b"79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798", 16).unwrap(), 
             BigInt::parse_bytes(b"483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8", 16).unwrap())
@@ -84,12 +84,24 @@ impl Point {
         point
     }
 
-    fn x_as_hex(&self) -> String {
+    pub fn x_to_hex_string(&self) -> String {
         format!("{:0>64}", self.x.to_str_radix(16).to_uppercase())
     }
 
-    fn y_as_hex(&self) -> String {
+    pub fn y_to_hex_string(&self) -> String {
         format!("{:0>64}", self.y.to_str_radix(16).to_uppercase())
+    }
+
+    pub fn x_bytes(&self) -> Vec<u8> {
+        self.x.to_biguint().unwrap().to_bytes_be()
+    }
+
+    pub fn y_bytes(&self) -> Vec<u8> {
+        self.y.to_biguint().unwrap().to_bytes_be()
+    }
+
+    pub fn y_is_even(&self) -> bool {
+        self.y.clone() % BigInt::from(2) == BigInt::from(0)
     }
 }
 
@@ -470,19 +482,23 @@ mod tests {
         assert_eq!(actual, expected);
     }
 
+
+
     #[test]
-    fn test_basic_stuff() {
+    fn test_start_public_key_calculations() {
         let private_key = BigInt::parse_bytes(b"1E99423A4ED27608A15A2616A2B0E9E52CED330AC530EDCC32C8FFC6A526AEDD", 16).unwrap();
 
         let point = Point::generator_point();
 
+        // K = kG
+        // public_key = private_key * generater_point
         let public_key = point * private_key;
 
         let expected_x = "F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A".to_string();
         let expected_y = "07CF33DA18BD734C600B96A72BBC4749D5141C90EC8AC328AE52DDFE2E505BDB".to_string();
 
-        assert_eq!(public_key.x_as_hex(), expected_x);
-        assert_eq!(public_key.y_as_hex(), expected_y);
+        assert_eq!(public_key.x_to_hex_string(), expected_x);
+        assert_eq!(public_key.y_to_hex_string(), expected_y);
     }
 
     #[test]

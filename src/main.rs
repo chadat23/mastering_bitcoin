@@ -5,8 +5,10 @@
 // use primitive_types::U512;
 
 // mod ch4;
-mod utils;
 mod point;
+mod utils;
+mod wallet;
+mod base58;
 
 fn main() {
     // ch4::ch4();
