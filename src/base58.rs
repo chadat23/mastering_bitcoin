@@ -9,21 +9,25 @@ impl Base58 {
         let mut remainder = BigInt::from_bytes_be(Sign::Plus, &n[..]);
 
         let largest = BigInt::from(256).pow(bytes as u32);
-        let mut didgets = BigInt::from(0);
-        let one = BigInt::from(1);
+        let mut didgets = 0;
         let fifty_eight = BigInt::from(58);
         let mut text = Vec::new();
 
-        while didgets < largest {
-            didgets += one.clone();
+        while fifty_eight.pow(didgets) < largest {
+            didgets += 1;
+        }
+        didgets -=1;
+        if remainder < BigInt::parse_bytes(b"000AF820000000000000000000000000000000000000000000", 16).unwrap() {
+            didgets -= 1;
         }
 
-        for i in (0..didgets.to_u32_digits().1[0]).rev() {
-            text.push(dec_to_base58((remainder.clone() / fifty_eight.pow(i)).to_u32_digits().1[0] as u8));
+        for i in (0..didgets).rev() {
+            let devisor = remainder.clone() / fifty_eight.pow(i);
+            let result = devisor.to_biguint();
+            text.push(dec_to_base58(result.unwrap().to_bytes_le()[0] as u8));
             remainder %= fifty_eight.pow(i);
         }
-
-        text.reverse();
+        
         text.into_iter().collect()
     }
 
@@ -176,6 +180,17 @@ mod tests {
     // Note this useful idiom: importing names from outer (for mod tests) scope.
     use super::*;
 
+    fn hex_string_to_bytes(text: String) -> Vec<u8> {
+        let a = text.chars();
+        let a = a.collect::<Vec<char>>();
+        let a = a.chunks(2);
+        let a = a.collect::<Vec<&[char]>>(); 
+        let a = a.iter().map(|&c| c.into_iter().collect::<String>());
+        let a = a.map(|a| u8::from_str_radix(&a, 16).unwrap());
+        let a = a.collect::<Vec<_>>();
+        a
+    }
+
     #[test]
     fn test_from_bigint() {
         let n = BigInt::parse_bytes(b"01e99423a4ed27608a15a2616a2b0e9e52ced330ac530edcc32c8fc6a526aedd", 16).unwrap();
@@ -189,7 +204,7 @@ mod tests {
 
     #[test]
     fn test_from_vec_u8() {
-        let n = Vec::from([0x00, 0x24, 0x50, 0xAB, 0xE3, 0x83, 0x0D, 0x85, 0x08, 0xB6, 0x9E, 0xDF, 0x22, 0x96, 0x45, 0x82, 0xB7, 0x8C, 0xCC, 0x45, 0xCC, 0x55, 0xC9, 0x23, 0xA8]);
+        let n = hex_string_to_bytes("002450ABE3830D8508B69EDF22964582B78CCC45CC55C923A8".to_string());
 
         let actual = Base58::from_vec_u8(n);
 
@@ -200,17 +215,17 @@ mod tests {
 
     #[test]
     fn test_from_vec_u8_2() {
-        let n = Vec::from([0x00, 0x04, 0x50, 0xAB, 0xE3, 0x83, 0x0D, 0x85, 0x08, 0xB6, 0x9E, 0xDF, 0x22, 0x96, 0x45, 0x82, 0xB7, 0x8C, 0xCC, 0x45, 0xCC, 0x55, 0xC9, 0x23, 0xA8]);
+        let n = hex_string_to_bytes("000ABDFB3F9CDF20EBC6EC277FCB8186D86D2C3B2095B128E4".to_string());
         let actual = Base58::from_vec_u8(n);
 
-        let expected = "1PpLvCfFPVenV6Te65UjCSFENz7f3BkUF".to_string();
+        let expected = "1yoM4VGhTaE4nCJgbmJoevC6ddoeQUzjM".to_string();
 
         assert_eq!(actual, expected);
     }
 
     #[test]
     fn test_from_vec_u8_3() {
-        let n = Vec::from([0x05, 0x4C, 0xF3, 0xA3, 0x38, 0x42, 0x0E, 0x93, 0xE3, 0xC6, 0x59, 0x3A, 0x98, 0x05, 0xB5, 0xF0, 0xC6, 0xEB, 0x5D, 0x16, 0xA7, 0x3D, 0x8B, 0xFF]); 
+        let n = hex_string_to_bytes("054CF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08".to_string());
         let actual = Base58::from_vec_u8(n);
 
         let expected = "38hu9MkFKM1gBPwYR16zP76ssm8rMrHJ4f".to_string();
@@ -220,7 +235,7 @@ mod tests {
 
     #[test]
     fn test_from_vec_u8_4() {
-        let n = Vec::from([0x6F, 0xFC, 0xF3, 0xA3, 0x38, 0x42, 0x0E, 0x93, 0xE3, 0xC6, 0x59, 0x3A, 0x98, 0x05, 0xB5, 0xF0, 0xC6, 0xEB, 0x5D, 0x16, 0xA7, 0x3D, 0x8B, 0xFF]); 
+        let n = hex_string_to_bytes("6FFCF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08".to_string());
         let actual = Base58::from_vec_u8(n);
 
         let expected = "n4aSSdYfwXhXZCdQiKmJcjTFLTJzLGpyw5".to_string();
@@ -230,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_from_vec_u8_5() {
-        let n = Vec::from([0x6F, 0x0C, 0xF3, 0xA3, 0x38, 0x42, 0x0E, 0x93, 0xE3, 0xC6, 0x59, 0x3A, 0x98, 0x05, 0xB5, 0xF0, 0xC6, 0xEB, 0x5D, 0x16, 0xA7, 0x3D, 0x8B, 0xFF]); 
+        let n = hex_string_to_bytes("6F0CF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08".to_string());
         let actual = Base58::from_vec_u8(n);
 
         let expected = "mghSGbGTuB1qAUwCkcpwfN8pgc8c3NDe1d".to_string();
@@ -239,8 +254,18 @@ mod tests {
     }
 }
 
+// 002450ABE3830D8508B69EDF22964582B78CCC45CC55C923A8
+
+// 000450ABE3830D8508B69EDF22964582B78CCC45CC55C923A8
+
 // 054CF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08
 
 // 6FFCF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08
 
 // 6F0CF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08
+
+// 000ADDFB3F9CDF20EBC6EC277FCB8186D86D2C3B2095B128E4
+// 000ADD00000000000000000000000000000000000000000000
+// 0000AE10000000000000000000000000000000000000000000
+
+// 1SiT7kyGAuaHgu7nVa25QcWGqLNQhzsGB
