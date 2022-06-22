@@ -5,29 +5,26 @@ pub(crate) struct Base58 ();
 
 impl Base58 {
     pub fn from_vec_u8(n: Vec<u8>) -> String {
+        let bytes = n.len();
+        let mut remainder = BigInt::from_bytes_be(Sign::Plus, &n[..]);
+
+        let largest = BigInt::from(256).pow(bytes as u32);
+        let mut didgets = BigInt::from(0);
+        let one = BigInt::from(1);
         let fifty_eight = BigInt::from(58);
-        let zero = BigInt::from(0);
+        let mut text = Vec::new();
 
-        let mut zeros = Vec::new();
-
-        let mut idx = 0;
-        while n[idx] == 0 {
-            zeros.push(dec_to_base58(0));
-            idx += 1;
+        while didgets < largest {
+            didgets += one.clone();
         }
 
-        let mut text = Vec::new();
-        let n = BigInt::from_bytes_be(Sign::Plus, &n[..]);
-        let mut devisor = n;
-        while devisor > zero {
-            let remainder = *(devisor.clone() % fifty_eight.clone()).to_biguint().unwrap().to_bytes_be().last().unwrap();
-            devisor /= fifty_eight.clone();
-            text.push(dec_to_base58(remainder));
+        for i in (0..didgets.to_u32_digits().1[0]).rev() {
+            text.push(dec_to_base58((remainder.clone() / fifty_eight.pow(i)).to_u32_digits().1[0] as u8));
+            remainder %= fifty_eight.pow(i);
         }
 
         text.reverse();
-        zeros.append(&mut text);
-        zeros.into_iter().collect()
+        text.into_iter().collect()
     }
 
 
@@ -210,5 +207,40 @@ mod tests {
 
         assert_eq!(actual, expected);
     }
+
+    #[test]
+    fn test_from_vec_u8_3() {
+        let n = Vec::from([0x05, 0x4C, 0xF3, 0xA3, 0x38, 0x42, 0x0E, 0x93, 0xE3, 0xC6, 0x59, 0x3A, 0x98, 0x05, 0xB5, 0xF0, 0xC6, 0xEB, 0x5D, 0x16, 0xA7, 0x3D, 0x8B, 0xFF]); 
+        let actual = Base58::from_vec_u8(n);
+
+        let expected = "38hu9MkFKM1gBPwYR16zP76ssm8rMrHJ4f".to_string();
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_from_vec_u8_4() {
+        let n = Vec::from([0x6F, 0xFC, 0xF3, 0xA3, 0x38, 0x42, 0x0E, 0x93, 0xE3, 0xC6, 0x59, 0x3A, 0x98, 0x05, 0xB5, 0xF0, 0xC6, 0xEB, 0x5D, 0x16, 0xA7, 0x3D, 0x8B, 0xFF]); 
+        let actual = Base58::from_vec_u8(n);
+
+        let expected = "n4aSSdYfwXhXZCdQiKmJcjTFLTJzLGpyw5".to_string();
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn test_from_vec_u8_5() {
+        let n = Vec::from([0x6F, 0x0C, 0xF3, 0xA3, 0x38, 0x42, 0x0E, 0x93, 0xE3, 0xC6, 0x59, 0x3A, 0x98, 0x05, 0xB5, 0xF0, 0xC6, 0xEB, 0x5D, 0x16, 0xA7, 0x3D, 0x8B, 0xFF]); 
+        let actual = Base58::from_vec_u8(n);
+
+        let expected = "mghSGbGTuB1qAUwCkcpwfN8pgc8c3NDe1d".to_string();
+
+        assert_eq!(actual, expected);
+    }
 }
 
+// 054CF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08
+
+// 6FFCF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08
+
+// 6F0CF3A338420E93E3C6593A9805B5F0C6EB5D16A73D8BFF08
