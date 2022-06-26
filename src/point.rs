@@ -9,46 +9,60 @@ use crate::utils;
 pub(crate) struct Point {
     x: BigInt,
     y: BigInt,
-    a: BigInt,
-    b: BigInt,
-    p: BigInt,
-    n: BigInt,
 }
 
 impl Point {
-    pub fn generator_point() -> Self {
-        Point::from_xy(
-            BigInt::parse_bytes(b"79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798", 16).unwrap(), 
-            BigInt::parse_bytes(b"483ADA7726A3C4655DA4FBFC0E1108A8FD17B448A68554199C47D08FFB10D4B8", 16).unwrap())
-    }
+    pub(crate) fn add(self, other: Self, p: &BigInt, a: &BigInt) -> Self {
+        // let this = &self;
+        // let other = &other;
 
-    fn from_xy(x: BigInt, y: BigInt) -> Self {
-        let two = BigInt::from(2);
+        // let zero = BigInt::from(0);
+        // if self.x < zero {
+        //     return other
+        // }
+        // if other.x < zero {
+        //     return self
+        // }
+        let s = if self.x == other.x {
+            if self.y != other.y {
+                return Self {
+                    x: BigInt::from(-1),
+                    y: BigInt::from(-1),
+                }
+            }
+            let dy = positive_mod(&(3 * self.x.pow(2) + a), &p);
+            let dx = modulo_inverse(&(BigInt::from(2) * self.y()), &p);
+            dy * dx
+        } else {
+            positive_mod(&((other.y() - self.y()) * modulo_inverse(&(other.x() - self.x()), &p)), &p)
+        };
+        let x = positive_mod(&(s.pow(2) - (self.x() + other.x())), &p);
+        let y = p - positive_mod(&(self.y() + s * (x.clone() - self.x())), &p);
+
         Self {
             x,
             y,
-            a: BigInt::from(0u8),
-            b: BigInt::from(7u8),
-            p: two.pow(256) 
-                - two.pow(32) 
-                - two.pow(9) 
-                - two.pow(8) 
-                - two.pow(7)
-                - two.pow(6)
-                - two.pow(4)
-                - BigInt::from(1u8),
-            n: utils::to_bigint(utils::N)
         }
     }
 
-    fn from_xyabcpn(x: BigInt, y: BigInt, a: BigInt, b: BigInt, p: BigInt, n: BigInt) -> Self {
+    pub(crate) fn multiply(self, rhs: &BigInt, p: &BigInt, a: &BigInt) -> Self {
+        let powers = powers_of_two(rhs);
+        let power = powers[0];
+        let mut last_power = power;
+        let mut point = self.double_n_times(power, &p, &a);
+        let mut point_total = point.clone();
+        for power in &powers[1..] {
+            point = point.clone().double_n_times(power - last_power, &p, &a);
+            point_total = point_total.add(point.clone(), &p, &a);
+            last_power = *power;
+        }
+        point_total
+    }
+
+    pub(crate) fn from_xy(x: BigInt, y: BigInt) -> Self {
         Self {
             x,
             y,
-            a,
-            b,
-            p,
-            n
         }
     }
 
@@ -60,26 +74,10 @@ impl Point {
         self.y.clone()
     }
 
-    fn a(&self) -> BigInt {
-        self.a.clone()
-    }
-
-    // fn b(&self) -> BigInt {
-    //     self.b.clone()
-    // }
-
-    // fn p(&self) -> BigInt {
-    //     self.p.clone()
-    // }
-
-    // fn n(&self) -> BigInt {
-    //     self.n.clone()
-    // }
-
-    fn double_n_times(self, n: u16) -> Self {
+    fn double_n_times(self, n: u16, p: &BigInt, a: &BigInt) -> Self {
         let mut point = self.clone();
         for _ in 0..n {
-            point = point.clone() + point;
+            point = point.clone().add(point, &p, &a)
         }
         point
     }
@@ -110,99 +108,7 @@ impl Clone for Point {
         Self { 
             x: self.x.clone(), 
             y: self.y.clone(), 
-            a: self.a.clone(), 
-            b: self.b.clone(), 
-            p: self.p.clone(), 
-            n: self.n.clone() 
         }
-    }
-}
-
-impl Add for Point {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        // let this = &self;
-        // let other = &other;
-
-        // let zero = BigInt::from(0);
-        // if self.x < zero {
-        //     return other
-        // }
-        // if other.x < zero {
-        //     return self
-        // }
-        let s = if self.x == other.x {
-            if self.y != other.y {
-                return Self {
-                    x: BigInt::from(-1),
-                    y: BigInt::from(-1),
-                    a: self.a(),
-                    b: self.b.clone(),
-                    p: self.p.clone(),
-                    n: self.n.clone(),
-                }
-            }
-            let dy = positive_mod(&(3 * self.x.pow(2) + self.a()), &self.p);
-            let dx = modulo_inverse(&(BigInt::from(2) * self.y()), &self.p);
-            dy * dx
-        } else {
-            positive_mod(&((other.y() - self.y()) * modulo_inverse(&(other.x() - self.x()), &self.p)), &self.p)
-        };
-        let x = positive_mod(&(s.pow(2) - (self.x() + other.x())), &self.p);
-        let y = self.p.clone() - positive_mod(&(self.y() + s * (x.clone() - self.x())), &self.p);
-
-        Self {
-            x,
-            y,
-            a: self.a(),
-            b: self.b.clone(),
-            p: self.p.clone(),
-            n: self.n.clone(),
-        }
-    }
-}
-
-impl Mul<BigInt> for Point {
-    type Output = Self;
-
-    fn mul(self, rhs: BigInt) -> Self {
-        let powers = powers_of_two(rhs);
-        let power = powers[0];
-        let mut last_power = power;
-        let mut point = self.clone().double_n_times(power);
-        let mut point_total = point.clone();
-        // let mut point_total = self.clone().double_n_times(power);
-        for power in &powers[1..] {
-            point = point.double_n_times(power - last_power);
-            point_total = point_total + point.clone();
-            last_power = *power;
-        }
-        point_total
-    }
-}
-
-impl Mul<BigUint> for Point {
-    type Output = Self;
-
-    fn mul(self, rhs: BigUint) -> Self {
-        self * rhs.to_bigint().unwrap()
-    }
-}
-
-impl Mul<Point> for BigInt {
-    type Output = Point;
-
-    fn mul(self, rhs: Point) -> Point {
-        rhs * self
-    }
-}
-
-impl Mul<Point> for BigUint {
-    type Output = Point;
-
-    fn mul(self, rhs: Point) -> Point {
-        rhs * self.to_bigint().unwrap()
     }
 }
 
@@ -236,7 +142,7 @@ fn extended_euclidean_algeorithm(num: &BigInt, p: &BigInt, i_num: &BigInt, j_num
 /// let a = powers_of_two(157);
 /// assert_eq!(a, vec![0, 2, 3, 4, 7]);
 /// ```
-fn powers_of_two(n: BigInt) -> Vec<u16> {
+fn powers_of_two(n: &BigInt) -> Vec<u16> {
     let mut n = n.to_biguint().unwrap();
     let mut output = Vec::new();
     let mut idx = 0u16;
@@ -269,17 +175,9 @@ mod tests {
     fn test_point(x: u32, y: u32) -> Point {
         let x = BigInt::from(x);
         let y = BigInt::from(y);
-        let a = BigInt::from(0);
-        let b = BigInt::from(7);
-        let p = BigInt::from(17);
-        let n = BigInt::from(18);
         Point {
             x,
             y,
-            a,
-            b,
-            p,
-            n,
         }
     }
 
@@ -287,8 +185,12 @@ mod tests {
     fn test_point_addition_to_itself() {
         let point1 = test_point(1, 5);
         let point2 = test_point(1, 5);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = point1 + point2;
+        let actual = point1.add(point2, &p, &a);
 
         let expected = test_point(2, 10);
         assert_eq!(actual, expected);
@@ -298,8 +200,12 @@ mod tests {
     fn test_point_addition_other_modulo() {
         let point1 = test_point(1, 5);
         let point2 = test_point(2, 10);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = point1 + point2;
+        let actual = point1.add(point2, &p, &a);
 
         let expected = test_point(5, 9);
         assert_eq!(actual, expected);
@@ -309,8 +215,12 @@ mod tests {
     fn test_point_addition_other() {
         let point1 = test_point(1, 5);
         let point2 = test_point(2, 7);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = point1 + point2;
+        let actual = point1.add(point2, &p, &a);
 
         let expected = test_point(1, 12);
         assert_eq!(actual, expected);
@@ -318,7 +228,7 @@ mod tests {
 
     #[test]
     fn test_powers_of_two() {
-        let actual = powers_of_two(BigInt::from(37));
+        let actual = powers_of_two(&BigInt::from(37));
         let expected = Vec::from([0, 2, 5]);
         assert_eq!(actual, expected);
     }
@@ -326,8 +236,12 @@ mod tests {
     #[test]
     fn test_double_n_times_0() {
         let point = test_point(1, 5);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
         
-        let actual = point.clone().double_n_times(0);
+        let actual = point.clone().double_n_times(0, &p, &a);
 
         let expected = point;
 
@@ -337,8 +251,12 @@ mod tests {
     #[test]
     fn test_double_n_times_1() {
         let point = test_point(1, 5);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
         
-        let actual = point.clone().double_n_times(1);
+        let actual = point.clone().double_n_times(1, &p, &a);
 
         let expected = test_point(2, 10);
 
@@ -348,8 +266,12 @@ mod tests {
     #[test]
     fn test_double_n_times_2() {
         let point = test_point(1, 5);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
         
-        let actual = point.clone().double_n_times(2);
+        let actual = point.clone().double_n_times(2, &p, &a);
 
         let expected = test_point(12, 1);
 
@@ -360,8 +282,12 @@ mod tests {
     fn test_multiplication_int_1() {
         let point = test_point(1, 5);
         let factor = BigInt::from(1);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = point * factor;
+        let actual = point.multiply(&factor, &p, &a);
 
         let expected = test_point(1, 5);
 
@@ -372,8 +298,12 @@ mod tests {
     fn test_multiplication_int_1_rev() {
         let point = test_point(1, 5);
         let factor = BigInt::from(1);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = factor * point;
+        let actual = point.multiply(&factor, &p, &a);
 
         let expected = test_point(1, 5);
 
@@ -384,8 +314,12 @@ mod tests {
     fn test_multiplication_int_2() {
         let point = test_point(1, 5);
         let factor = BigInt::from(2);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = point * factor;
+        let actual = point.multiply(&factor, &p, &a);
 
         let expected = test_point(2, 10);
 
@@ -396,8 +330,12 @@ mod tests {
     fn test_multiplication_int_2_rev() {
         let point = test_point(1, 5);
         let factor = BigInt::from(2);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = factor * point;
+        let actual = point.multiply(&factor, &p, &a);
 
         let expected = test_point(2, 10);
 
@@ -408,8 +346,12 @@ mod tests {
     fn test_multiplication_int_21() {
         let point = test_point(1, 5);
         let factor = BigInt::from(21);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = point * factor;
+        let actual = point.multiply(&factor, &p, &a);
 
         let expected = test_point(5, 9);
 
@@ -420,8 +362,12 @@ mod tests {
     fn test_multiplication_int_21_rev() {
         let point = test_point(1, 5);
         let factor = BigInt::from(21);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = factor * point;
+        let actual = point.multiply(&factor, &p, &a);
 
         let expected = test_point(5, 9);
 
@@ -432,8 +378,12 @@ mod tests {
     fn test_multiplication_int_40() {
         let point = test_point(1, 5);
         let factor = BigInt::from(40);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = point * factor;
+        let actual = point.multiply(&factor, &p, &a);
 
         let expected = test_point(12, 1);
 
@@ -444,8 +394,12 @@ mod tests {
     fn test_multiplication_int_40_rev() {
         let point = test_point(1, 5);
         let factor = BigInt::from(40);
+        let a = BigInt::from(0);
+        let b = BigInt::from(7);
+        let p = BigInt::from(17);
+        let n = BigInt::from(18);
 
-        let actual = factor * point;
+        let actual = point.multiply(&factor, &p, &a);
 
         let expected = test_point(12, 1);
 
@@ -484,27 +438,27 @@ mod tests {
 
 
 
-    #[test]
-    fn test_start_public_key_calculations() {
-        let private_key = BigInt::parse_bytes(b"1E99423A4ED27608A15A2616A2B0E9E52CED330AC530EDCC32C8FFC6A526AEDD", 16).unwrap();
+    // #[test]
+    // fn test_start_public_key_calculations() {
+    //     let private_key = BigInt::parse_bytes(b"1E99423A4ED27608A15A2616A2B0E9E52CED330AC530EDCC32C8FFC6A526AEDD", 16).unwrap();
 
-        let point = Point::generator_point();
+    //     let point = Point::generator_point();
 
-        // K = kG
-        // public_key = private_key * generater_point
-        let public_key = point * private_key;
+    //     // K = kG
+    //     // public_key = private_key * generater_point
+    //     let public_key = point * private_key;
 
-        let expected_x = "F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A".to_string();
-        let expected_y = "07CF33DA18BD734C600B96A72BBC4749D5141C90EC8AC328AE52DDFE2E505BDB".to_string();
+    //     let expected_x = "F028892BAD7ED57D2FB57BF33081D5CFCF6F9ED3D3D7F159C2E2FFF579DC341A".to_string();
+    //     let expected_y = "07CF33DA18BD734C600B96A72BBC4749D5141C90EC8AC328AE52DDFE2E505BDB".to_string();
 
-        assert_eq!(public_key.x_to_hex_string(), expected_x);
-        assert_eq!(public_key.y_to_hex_string(), expected_y);
-    }
+    //     assert_eq!(public_key.x_to_hex_string(), expected_x);
+    //     assert_eq!(public_key.y_to_hex_string(), expected_y);
+    // }
 
-    #[test]
-    fn test_lkj() {
-        let point = Point::from_xy(BigInt::from(4), BigInt::from(5));
-        dbg!("++++++++++++++++++++++++++++++++++++++++++++++", point.p);
-        // assert!(false)
-    }
+    // #[test]
+    // fn test_lkj() {
+    //     let point = Point::from_xy(BigInt::from(4), BigInt::from(5));
+    //     dbg!("++++++++++++++++++++++++++++++++++++++++++++++", point.p);
+    //     // assert!(false)
+    // }
 }

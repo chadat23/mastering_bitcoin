@@ -13,3 +13,6 @@ num-bigint = { version = "0.4.3", features = ["rand"] }
 sha2 = "0.10.2"
 ripemd = "0.1.1"
 base58 = "0.2.0"
+
+
+# Advanced Encryption Standard (AES)

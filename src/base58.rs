@@ -3,8 +3,11 @@ use num_bigint::{BigInt, Sign};
 
 pub(crate) struct Base58 ();
 
+
 impl Base58 {
     pub fn from_vec_u8(n: Vec<u8>) -> String {
+        // https://appdevtools.com/base58-encoder-decoder
+
         let bytes = n.len();
         let mut remainder = BigInt::from_bytes_be(Sign::Plus, &n[..]);
 
